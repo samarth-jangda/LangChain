@@ -3,9 +3,11 @@
 
 import argparse, requests, googlesearch, json, datetime
 from langchain import LangChain
+from bs4 import BeautifulSoup
 
 parser = argparse.ArgumentParser(description="Following arguments will be used to take action on user query as per its context",
-                                 epilog="",
+                                 epilog="python3 lang_chain.py --user-query=<sample_query> --openai-api-key=<{api}_key>" 
+                                 "--num-google-results=<number_of_results> --output-path=<path_to_save_response>",
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
 parser.add_argument("--user-query", type=str, default="", required=True,
@@ -62,7 +64,7 @@ def check_context(query=args.user_query):
         print("The qeury is treated as factual or non-emotional")
         return {"QueryType":"GoogleQuery"}    
     
-def answer_prompt(query=args.user_query, output_response=args.output_path):
+def answer_prompt(query,output_response):
     """
     The following function is used to answer the query asked by the user as per
     1) answer from google: If it is a factual question
@@ -81,7 +83,25 @@ def answer_prompt(query=args.user_query, output_response=args.output_path):
             response.append({'title':res.name, 'link':res.link})
             response[f'Response{query}':]={'title':res.name, 'link':res.link}
             result=json.dumps(response)
+    else:
+        print("It is clear that the provided query is both factual and sentimental")
+        url= f"https://www.google.com/search?q={query}"
+        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"}
+        url_response = requests.get(url,headers)
+        url_response.raise_for_status()
+        soup = BeautifulSoup(url_response.content, 'html.parser')
+        # Find the first search result link
+        search_results = soup.find_all("div", class_="tF2Cxc")
+        if search_results:
+            first_result = search_results[0].find("a")["href"]  
+            print("The first result as per search is {} ".format(first_result))
+            # getting the response from chatgpt api
+            response=gpt_answer(prompt_query=first_result)
+        print("Following is the [{}] response from chatgpt".format(response))    
     current_time=datetime.datetime.now()
     with open(f"{output_response}/{current_time}.json", 'w', encoding='utf-8') as json_file:
         json.dump(response, json_file)
     return {"QueryResponse":response}
+
+if "__main__" == __name__:
+    answer_prompt(query=args.user_query, output_response=args.output_path)

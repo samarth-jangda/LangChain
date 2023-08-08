@@ -5,8 +5,9 @@
     # 2) 408 Response: If there is a client side error
     # 3) 500 Response: If these is a server side error
 
-import subprocess    
+import subprocess, lang_chain    
 from flask import Flask, jsonify, request, Response
+
 
 app = Flask(__name__)
 
@@ -28,10 +29,12 @@ def post_query():
     # the response being posted by the user
     data = request.get_json()
     if data !=  None:
-        # now to post the following response to the lang chain model to get a response
+        # In case to run from shell script for direct testing
         query_answer= subprocess.run([f'./data_validation.sh {data} exp/queries exp/responses'])
+        # now to post the following response to the lang chain model to get a response
+        query_response=lang_chain.answer_prompt(query=data,output_response="exp/responses")
         # get the saved response in specified directory
-        return jsonify({"Message":query_answer, "Response": Response(status=204)})
+        return jsonify({"Message":query_response, "Response": Response(status=204)})
     else:
         # case if the user didn't pass any query
         print("Since the data is [None] hence sending the reply as 408 to the user")
